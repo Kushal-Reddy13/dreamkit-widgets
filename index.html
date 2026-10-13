@@ -3,49 +3,69 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sunroof 3-Stage Switch</title>
-  <!-- digital.auto syncer: links this widget to Playground signals -->
+  <title>Sunroof 3-Stage Switch (DEBUG)</title>
   <script defer src="https://bestudio.digitalauto.tech/project/BzR91b49OHqj/syncer.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 10px; user-select: none; margin: 0; }
-    .btn { width: 120px; height: 60px; margin: 8px; font-size: 18px; font-weight: bold;
+    body { font-family: Arial, sans-serif; text-align: center; padding: 6px; user-select: none; margin: 0; }
+    .btn { width: 110px; height: 50px; margin: 6px; font-size: 16px; font-weight: bold;
            border: none; border-radius: 10px; color: white; cursor: pointer; touch-action: none; }
     #openBtn  { background: #2e7d32; }
     #closeBtn { background: #c62828; }
     .btn.active { transform: scale(0.95); filter: brightness(1.3); }
-    #state { margin-top: 12px; font-size: 22px; font-weight: bold; }
-    #live  { margin-top: 6px; font-size: 14px; color: #555; }
+    #state { font-size: 20px; font-weight: bold; }
+    #debug { text-align: left; font-size: 11px; font-family: monospace; background: #f3f3f3;
+             border: 1px solid #ccc; padding: 4px; margin-top: 6px; height: 160px; overflow: auto;
+             white-space: pre-wrap; user-select: text; }
   </style>
 </head>
 <body>
   <button id="openBtn"  class="btn">OPEN</button>
   <button id="closeBtn" class="btn">CLOSE</button>
-
   <div id="state">STABLE</div>
-  <!-- Live value of the signal, filled automatically by syncer.js -->
-  <div id="live">Signal: <span vss="true" vss-name="Vehicle.Test.Sunroof"></span></div>
+  <div>Signal: <span vss="true" vss-name="Vehicle.Audi.Sunroof"></span></div>
+  <div id="debug"></div>
 
   <script>
-    const API = "Vehicle.Test.Sunroof";
-
-    // ===== CONFIG: match the Data Type of Vehicle.Test.Sunroof in the Playground =====
-    // Signal is string  -> keep these values.
-    // Signal is int8    -> change to: OPEN: 1, STABLE: 0, CLOSE: -1
-    const VALUES = { OPEN: "OPEN", STABLE: "STABLE", CLOSE: "CLOSE" };
-    // ================================================================================
-
+    const API = "Vehicle.Audi.Sunroof";
+    // Must match the SDV code: "ON" / "STABLE" / "OFF" (signal datatype = string)
+    const VALUES = { OPEN: "ON", STABLE: "STABLE", CLOSE: "OFF" };
     let current = VALUES.STABLE;
 
-    // >>> Put the Playground "set value" call here (found in syncer.js) <<<
+    const dbg = (t) => { const d = document.getElementById("debug");
+                         d.textContent += t + "\n"; d.scrollTop = d.scrollHeight; };
+
+    // 1) Log every message the Playground sends into this widget (shows the protocol)
+    window.addEventListener("message", (e) => {
+      let txt; try { txt = JSON.stringify(e.data); } catch { txt = String(e.data); }
+      if (txt && txt.length > 300) txt = txt.slice(0, 300) + "...";
+      dbg("MSG IN: " + txt);
+    });
+
+    // 2) After syncer.js loads, list the functions/objects it added to the page
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        const clean = document.createElement("iframe");
+        clean.style.display = "none"; document.body.appendChild(clean);
+        const std = new Set(Object.getOwnPropertyNames(clean.contentWindow));
+        const added = Object.getOwnPropertyNames(window)
+          .filter(k => !std.has(k) && !["API","VALUES","current","dbg","writeVss","setState","bindHold","label"].includes(k));
+        clean.remove();
+        dbg("SYNCER ADDED: " + (added.length ? added.map(k => k + "(" + typeof window[k] + ")").join(", ") : "nothing"));
+        added.forEach(k => {
+          const v = window[k];
+          if (v && typeof v === "object") {
+            try { dbg("  " + k + " keys: " + Object.keys(v).join(", ")); } catch {}
+          }
+        });
+      }, 1500);
+    });
+
+    // 3) Write function: placeholder until we know the real call
     function writeVss(api, value) {
-      console.log("SET", api, value);
+      dbg("SET " + api + " = " + value + "  (not sent yet)");
     }
 
-    function label(value) {
-      if (value === VALUES.OPEN) return "OPEN";
-      if (value === VALUES.CLOSE) return "CLOSE";
-      return "STABLE";
-    }
+    function label(v) { return v === VALUES.OPEN ? "OPEN" : v === VALUES.CLOSE ? "CLOSE" : "STABLE"; }
 
     function setState(value) {
       if (value === current) return;
